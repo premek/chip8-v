@@ -75,13 +75,19 @@ fn (i Instr) tostring() string {
 	return '(${i:04X}, nnn:${i.nnn():03X}, x:${i.x():X}, y:${i.y():X}, n:${i.n():X})'
 }
 
-struct Display {
+interface Display {
+mut:
+	pixel(x int, y int, val bool)
+	clear()
+}
+
+struct UiDisplay {
 mut:
 	window &ui.Window
 	pixels [][]ui.Rectangle
 }
 
-fn (mut d Display) clear() {
+fn (mut d UiDisplay) clear() {
 	println('display clear')
 	for mut col in d.pixels {
 		for mut rect in col {
@@ -91,7 +97,7 @@ fn (mut d Display) clear() {
 	d.window.refresh()
 }
 
-fn (mut d Display) pixel(x int, y int, val bool) {
+fn (mut d UiDisplay) pixel(x int, y int, val bool) {
 	//	println('Display ($x,$y)=$val')
 	// xor
 	color := if val { white } else { black }
@@ -100,7 +106,7 @@ fn (mut d Display) pixel(x int, y int, val bool) {
 	d.window.refresh()
 }
 
-fn new_display() (Display, thread) {
+fn new_ui_display() (UiDisplay, thread) {
 	mut app := &App{
 		window: 0
 	}
@@ -128,6 +134,7 @@ fn new_display() (Display, thread) {
 		state: app
 		on_key_down: fn (e ui.KeyEvent, wnd &ui.Window) {
 			println(e)
+			wnd.ui.gg.quit()
 		}
 		mode: .resizable // .max_size //
 		children: [
@@ -141,7 +148,7 @@ fn new_display() (Display, thread) {
 		]
 	)
 
-	return Display{
+	return UiDisplay{
 		pixels: pixels
 		window: window
 	}, go ui.run(window)
@@ -209,14 +216,14 @@ fn (mut m Vm) run_instruction(i Instr) {
 			println('Sprite on ($sx, $sy): [')
 			for r, row in sprite {
 				y := sy + r
-				print('"')
+				print("'")
 				for bit in 0 .. 8 {
 					x := sx + bit
 					val := (row >> (7 - bit)) & 1 == 1
 					m.display.pixel(x % w, y % h, val)
-					print(if val { 'X' } else { ' ' })
+					print(if val { '#' } else { ' ' })
 				}
-				println('"')
+				println("'")
 			}
 			println(']')
 
@@ -233,7 +240,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 }
 
 fn main() {
-	display, uithread := new_display()
+	display, uithread := new_ui_display()
 
 	mut vm := Vm{
 		ram: [4096]byte{}
