@@ -92,12 +92,15 @@ fn (mut d Display) clear() {
 }
 
 fn (mut d Display) pixel(x int, y int, val bool) {
-	println('Display ($x,$y)=$val')
-	d.pixels[x][y].color = if val { white } else { black }
+	//	println('Display ($x,$y)=$val')
+	// xor
+	color := if val { white } else { black }
+	newcolor := if color != d.pixels[x][y].color { white } else { black }
+	d.pixels[x][y].color = newcolor
 	d.window.refresh()
 }
 
-fn new_display() Display {
+fn new_display() (Display, thread) {
 	mut app := &App{
 		window: 0
 	}
@@ -137,11 +140,11 @@ fn new_display() Display {
 			),
 		]
 	)
-	go ui.run(window)
+
 	return Display{
 		pixels: pixels
 		window: window
-	}
+	}, go ui.run(window)
 }
 
 struct Vm {
@@ -184,7 +187,7 @@ fn (mut m Vm) run() {
 			break
 		}
 		m.run_instruction(i)
-		time.sleep(200 * time.millisecond)
+		time.sleep(50 * time.millisecond)
 	}
 	println('program end')
 }
@@ -197,14 +200,31 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 6 {
 			m.v[i.x()] = i.kk()
-			println(m.v)
+			println('V$i.x()=$i.kk(); $m.v')
 		}
 		i.a() == 0xD {
-			// TODO
-			m.display.pixel(m.v[i.x()], m.v[i.y()], true)
+			sprite := m.ram[m.i..m.i + i.n()]
+			sx := m.v[i.x()]
+			sy := m.v[i.y()]
+			println('Sprite on ($sx, $sy): [')
+			for r, row in sprite {
+				y := sy + r
+				print('"')
+				for bit in 0 .. 8 {
+					x := sx + bit
+					val := (row >> (7 - bit)) & 1 == 1
+					m.display.pixel(x % w, y % h, val)
+					print(if val { 'X' } else { ' ' })
+				}
+				println('"')
+			}
+			println(']')
+
+			// TODO set VF collision
 		}
 		i.a() == 0xF && i.kk() == 0x29 {
-			println('TODO ld sprite F ${m.v[i.x()]}')
+			m.i = m.v[i.x()] * 5
+			println('I = location of sprite for digit Vx; Vx=${m.v[i.x()]}; I=$m.i')
 		}
 		else {
 			panic('unknown instruction $i.hex()')
@@ -213,15 +233,17 @@ fn (mut m Vm) run_instruction(i Instr) {
 }
 
 fn main() {
+	display, uithread := new_display()
+
 	mut vm := Vm{
 		ram: [4096]byte{}
 		pc: 0x200
-		display: new_display()
+		display: display
 	}
 
 	vm.load('/home/premek/downloads/displayNumbers.rom', vm.pc)
 	vm.load('/home/premek/downloads/FONTS.chip8', 0)
 	vm.run()
 
-	// uithread.wait()
+	uithread.wait()
 }
