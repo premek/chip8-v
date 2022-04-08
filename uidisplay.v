@@ -15,6 +15,15 @@ struct UiDisplay {
 mut:
 	window &ui.Window
 	pixels [][]ui.Rectangle
+	dirty  bool
+}
+
+fn (mut d UiDisplay) refresh() {
+	if !d.dirty {
+		return
+	}
+	d.window.refresh()
+	d.dirty = false
 }
 
 fn (mut d UiDisplay) clear() {
@@ -24,7 +33,7 @@ fn (mut d UiDisplay) clear() {
 			rect.color = black
 		}
 	}
-	d.window.refresh()
+	d.dirty = true
 }
 
 fn (mut d UiDisplay) pixel(x int, y int, val bool) {
@@ -33,7 +42,7 @@ fn (mut d UiDisplay) pixel(x int, y int, val bool) {
 	color := if val { white } else { black }
 	newcolor := if color != d.pixels[x][y].color { white } else { black }
 	d.pixels[x][y].color = newcolor
-	d.window.refresh()
+	d.dirty = true
 }
 
 fn new_ui_display() (UiDisplay, thread) {
@@ -81,5 +90,6 @@ fn new_ui_display() (UiDisplay, thread) {
 	return UiDisplay{
 		pixels: pixels
 		window: window
+		dirty: true
 	}, go ui.run(window)
 }

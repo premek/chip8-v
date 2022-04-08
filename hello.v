@@ -70,6 +70,7 @@ interface Display {
 mut:
 	pixel(x int, y int, val bool)
 	clear()
+	refresh()
 }
 
 struct Vm {
@@ -112,7 +113,8 @@ fn (mut m Vm) run() {
 			break
 		}
 		m.run_instruction(i)
-		time.sleep(50 * time.millisecond)
+		m.display.refresh()
+		time.sleep(200 * time.millisecond)
 	}
 	println('program end')
 }
@@ -123,9 +125,35 @@ fn (mut m Vm) run_instruction(i Instr) {
 		i == 0x00E0 {
 			m.display.clear()
 		}
+		i.a() == 1 {
+			println('goto nnn')
+			m.pc = i.nnn()
+		}
+		i.a() == 3 {
+			println('Skip next if Vx = kk')
+			if m.v[i.x()] == i.kk() {
+				m.pc += 2
+			}
+		}
+		i.a() == 4 {
+			println('Skip next if Vx != kk')
+			if m.v[i.x()] != i.kk() {
+				m.pc += 2
+			}
+		}
+		i.a() == 5 {
+			println('Skip next if Vx = Vx')
+			if m.v[i.x()] == m.v[i.y()] {
+				m.pc += 2
+			}
+		}
 		i.a() == 6 {
 			m.v[i.x()] = i.kk()
 			println('V$i.x()=$i.kk(); $m.v')
+		}
+		i.a() == 0xA {
+			println('I=nnn')
+			m.i = i.nnn()
 		}
 		i.a() == 0xD {
 			sprite := m.ram[m.i..m.i + i.n()]
@@ -167,7 +195,8 @@ fn main() {
 		display: display
 	}
 
-	vm.load('/home/premek/downloads/displayNumbers.rom', vm.pc)
+	//	vm.load('/home/premek/downloads/displayNumbers.rom', vm.pc)
+	vm.load('/home/premek/downloads/test_opcode.ch8', vm.pc)
 	vm.load('/home/premek/downloads/FONTS.chip8', 0)
 	vm.run()
 
