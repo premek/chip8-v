@@ -1,3 +1,4 @@
+import math
 import time
 import os
 
@@ -73,7 +74,7 @@ fn (mut m Vm) run() {
 		m.run_instruction(i)
 		m.display.refresh()
 		println('\t')
-		time.sleep(100 * time.millisecond)
+		time.sleep(20 * time.millisecond)
 	}
 	println('program end')
 }
@@ -123,6 +124,48 @@ fn (mut m Vm) run_instruction(i Instr) {
 			m.v[i.x()] += i.kk()
 			println('Vx += kk')
 		}
+		i.a() == 8 && i.n() == 0 {
+			println('Vx=Vy')
+			m.v[i.x()] = m.v[i.y()]
+		}
+		i.a() == 8 && i.n() == 1 {
+			println('Vx|=Vy')
+			m.v[i.x()] |= m.v[i.y()]
+		}
+		i.a() == 8 && i.n() == 2 {
+			println('Vx&=Vy')
+			m.v[i.x()] &= m.v[i.y()]
+		}
+		i.a() == 8 && i.n() == 3 {
+			println('Vx^=Vy')
+			m.v[i.x()] ^= m.v[i.y()]
+		}
+		i.a() == 8 && i.n() == 4 {
+			println('vx = vx + vy, set vf = carry')
+			ret := u16(m.v[i.x()]) + m.v[i.y()]
+			m.v[i.x()] = byte(ret)
+			m.v[0xf] = if ret > 0xFF { byte(1) } else { 0 }
+		}
+		i.a() == 8 && i.n() == 5 {
+			println('Vx = Vx - Vy, set VF = NOT borrow')
+			m.v[0xf] = if m.v[i.x()] > m.v[i.y()] { byte(1) } else { 0 }
+			m.v[i.x()] -= m.v[i.y()]
+		}
+		i.a() == 8 && i.n() == 6 {
+			println('Vx = Vx SHR 1, VF overfl')
+			m.v[0xf] = m.v[i.x()] & 1
+			m.v[i.x()] >>= 1
+		}
+		i.a() == 8 && i.n() == 7 {
+			println('Vx = Vy - Vx, set VF = NOT borrow')
+			m.v[0xf] = if m.v[i.y()] > m.v[i.x()] { byte(1) } else { 0 }
+			m.v[i.x()] = m.v[i.y()] - m.v[i.x()]
+		}
+		i.a() == 8 && i.n() == 0xE {
+			println('Vx = Vx SHL 1, VF overfl')
+			m.v[0xf] = m.v[i.x()] >> 7
+			m.v[i.x()] <<= 1
+		}
 		i.a() == 9 {
 			println('Skip next if Vx != Vy')
 			if m.v[i.x()] != m.v[i.y()] {
@@ -152,6 +195,24 @@ fn (mut m Vm) run_instruction(i Instr) {
 			println(']')
 
 			// TODO set VF collision
+		}
+		i.a() == 0xF && i.kk() == 0x33 {
+			println('BCD Vx -> I, I+1, I+2')
+			m.ram[m.i] = m.v[i.x()] / 100
+			m.ram[m.i + 1] = m.v[i.x()] / 10 % 10
+			m.ram[m.i + 2] = m.v[i.x()] % 10
+		}
+		i.a() == 0xF && i.kk() == 0x55 {
+			for x in 0 .. i.x() + 1 {
+				println('ram[$m.i+$x] = V$x')
+				m.ram[m.i + x] = m.v[x]
+			}
+		}
+		i.a() == 0xF && i.kk() == 0x65 {
+			for x in 0 .. i.x() + 1 {
+				println('V$x = ram[$m.i+$x]')
+				m.v[x] = m.ram[m.i + x]
+			}
 		}
 		i.a() == 0xF && i.kk() == 0x29 {
 			m.i = m.v[i.x()] * 5
