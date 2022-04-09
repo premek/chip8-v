@@ -72,6 +72,7 @@ fn (mut m Vm) run() {
 		}
 		m.run_instruction(i)
 		m.display.refresh()
+		println('\t')
 		time.sleep(100 * time.millisecond)
 	}
 	println('program end')
@@ -84,7 +85,8 @@ fn (mut m Vm) run_instruction(i Instr) {
 			m.display.clear()
 		}
 		i == 0x00EE {
-			m.display.clear()
+			println('ret')
+			m.pc = m.stack.pop()
 		}
 		i.a() == 1 {
 			println('goto nnn')

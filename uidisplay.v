@@ -58,6 +58,7 @@ fn new_ui_display() (UiDisplay, thread) {
 		mut row_children := []ui.Widget{}
 		for y in 0 .. h {
 			pixels[x][y] = ui.rectangle()
+			pixels[x][y].color = black
 			row_children << pixels[x][y]
 		}
 		columns << ui.column(
