@@ -6,71 +6,28 @@ const (
 	h = 32
 )
 
-enum InstrType {
-	cls
-	jp
-	ld
-}
-
-type Instr = u16
-
-fn (i Instr) lo() byte {
-	return byte(i)
-}
-
-fn (i Instr) hi() byte {
-	return i >> 8
-}
-
-// the lowest 8 bits of the instruction
-
-fn (i Instr) kk() byte {
-	return byte(i)
-}
-
-// the lowest 12 bits of the instruction
-fn (i Instr) nnn() u16 {
-	return i & 0xFFF
-}
-
-// highest 4
-fn (i Instr) a() byte {
-	return i >> 12
-}
-
-// the lower 4 bits of the high byte of the instruction
-fn (i Instr) x() byte {
-	return byte(i & 0x0F00 >> 8)
-}
-
-// the upper 4 bits of the low byte of the instruction
-fn (i Instr) y() byte {
-	return byte(i & 0x00F0 >> 4)
-}
-
-// the lowest 4 bits of the instruction
-fn (i Instr) n() byte {
-	return byte(i & 0x000F)
-}
-
-fn (i Instr) println() {
-	println(i)
-	println(i.tostring())
-}
-
-fn (i Instr) hex() string {
-	return '${i:04X}'
-}
-
-fn (i Instr) tostring() string {
-	return '(${i:04X}, nnn:${i.nnn():03X}, x:${i.x():X}, y:${i.y():X}, n:${i.n():X})'
-}
-
 interface Display {
 mut:
 	pixel(x int, y int, val bool)
 	clear()
 	refresh()
+}
+
+struct Stack {
+mut:
+	data    [16]u16
+	pointer byte
+}
+
+fn (mut s Stack) push(e u16) {
+	s.pointer++
+	s.data[s.pointer] = e
+}
+
+fn (mut s Stack) pop() u16 {
+	ret := s.data[s.pointer]
+	s.pointer--
+	return ret
 }
 
 struct Vm {
@@ -79,6 +36,7 @@ mut:
 	pc      u16
 	v       [16]byte
 	i       u16
+	stack   Stack
 	display Display
 }
 
@@ -114,7 +72,7 @@ fn (mut m Vm) run() {
 		}
 		m.run_instruction(i)
 		m.display.refresh()
-		time.sleep(200 * time.millisecond)
+		time.sleep(100 * time.millisecond)
 	}
 	println('program end')
 }
@@ -125,8 +83,16 @@ fn (mut m Vm) run_instruction(i Instr) {
 		i == 0x00E0 {
 			m.display.clear()
 		}
+		i == 0x00EE {
+			m.display.clear()
+		}
 		i.a() == 1 {
 			println('goto nnn')
+			m.pc = i.nnn()
+		}
+		i.a() == 2 {
+			println('call nnn')
+			m.stack.push(m.pc)
 			m.pc = i.nnn()
 		}
 		i.a() == 3 {
@@ -142,7 +108,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 			}
 		}
 		i.a() == 5 {
-			println('Skip next if Vx = Vx')
+			println('Skip next if Vx = Vy')
 			if m.v[i.x()] == m.v[i.y()] {
 				m.pc += 2
 			}
@@ -150,6 +116,16 @@ fn (mut m Vm) run_instruction(i Instr) {
 		i.a() == 6 {
 			m.v[i.x()] = i.kk()
 			println('V$i.x()=$i.kk(); $m.v')
+		}
+		i.a() == 7 {
+			m.v[i.x()] += i.kk()
+			println('Vx += kk')
+		}
+		i.a() == 9 {
+			println('Skip next if Vx != Vy')
+			if m.v[i.x()] != m.v[i.y()] {
+				m.pc += 2
+			}
 		}
 		i.a() == 0xA {
 			println('I=nnn')
