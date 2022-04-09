@@ -1,4 +1,4 @@
-import math
+import rand
 import time
 import os
 
@@ -176,6 +176,10 @@ fn (mut m Vm) run_instruction(i Instr) {
 			println('I=nnn')
 			m.i = i.nnn()
 		}
+		i.a() == 0xC {
+			println('Vx = rand & kk')
+			m.v[i.x()] = rand.byte() & i.kk()
+		}
 		i.a() == 0xD {
 			sprite := m.ram[m.i..m.i + i.n()]
 			sx := m.v[i.x()]
@@ -196,6 +200,10 @@ fn (mut m Vm) run_instruction(i Instr) {
 
 			// TODO set VF collision
 		}
+		i.a() == 0xF && i.kk() == 0x29 {
+			m.i = m.v[i.x()] * 5
+			println('I = location of sprite for digit Vx; Vx=${m.v[i.x()]}; I=$m.i')
+		}
 		i.a() == 0xF && i.kk() == 0x33 {
 			println('BCD Vx -> I, I+1, I+2')
 			m.ram[m.i] = m.v[i.x()] / 100
@@ -213,10 +221,6 @@ fn (mut m Vm) run_instruction(i Instr) {
 				println('V$x = ram[$m.i+$x]')
 				m.v[x] = m.ram[m.i + x]
 			}
-		}
-		i.a() == 0xF && i.kk() == 0x29 {
-			m.i = m.v[i.x()] * 5
-			println('I = location of sprite for digit Vx; Vx=${m.v[i.x()]}; I=$m.i')
 		}
 		else {
 			panic('unknown instruction $i.hex()')
