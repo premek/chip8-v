@@ -1,43 +1,55 @@
 import rand
 import time
 import os
+import gg
+import gx
 
 const (
-	w = 64
-	h = 32
+	w       = 64
+	h       = 32
+	black   = gx.rgb(0, 0, 0)
+	white   = gx.rgb(255, 255, 255)
+
+	pwidth  = 640
+	pheight = 320
+	psize   = pwidth / w
+
+	/*
+	1234      123C
+	qwer --\\ 456D
+	asdf --// 789E
+	zxcv      A0BF
+	*/
+	keys    = {
+		gg.KeyCode._1: 1
+		gg.KeyCode._2: 2
+		gg.KeyCode._3: 3
+		gg.KeyCode._4: 0xC
+		gg.KeyCode.q:  4
+		gg.KeyCode.w:  5
+		gg.KeyCode.e:  6
+		gg.KeyCode.r:  0xD
+		gg.KeyCode.a:  7
+		gg.KeyCode.s:  8
+		gg.KeyCode.d:  9
+		gg.KeyCode.f:  0xE
+		gg.KeyCode.z:  0xA
+		gg.KeyCode.x:  0
+		gg.KeyCode.c:  0xB
+		gg.KeyCode.v:  0xF
+	}
 )
 
-interface Display {
-mut:
-	pixel(x int, y int, val bool)
-	clear()
-	refresh()
-}
-
-struct Stack {
-mut:
-	data    [16]u16
-	pointer byte
-}
-
-fn (mut s Stack) push(e u16) {
-	s.pointer++
-	s.data[s.pointer] = e
-}
-
-fn (mut s Stack) pop() u16 {
-	ret := s.data[s.pointer]
-	s.pointer--
-	return ret
-}
+type Display = [][]gx.Color
 
 struct Vm {
 mut:
-	ram     [4096]byte
+	ram     [4096]u8
 	pc      u16
-	v       [16]byte
+	v       [16]u8
 	i       u16
-	stack   Stack
+	dt      u8
+	stack   []u16
 	display Display
 }
 
@@ -72,11 +84,33 @@ fn (mut m Vm) run() {
 			break
 		}
 		m.run_instruction(i)
-		m.display.refresh()
+		if m.dt > 0 {
+			m.dt--
+		}
 		println('\t')
-		time.sleep(20 * time.millisecond)
+		time.sleep(16 * time.millisecond)
 	}
 	println('program end')
+}
+
+struct Pattern {
+	pattern []u8
+	handler fn (mut m Vm)
+}
+
+fn new_pattern(pattern string, handler fn (mut m Vm)) Pattern {
+	return Pattern{pattern.runes().map(u8('0x$it'.int())), handler}
+}
+
+fn (p Pattern) matches(i Instr) bool {
+	for b in 0 .. 4 {
+		a := i.getn(b)
+
+		if a != p.pattern[b] {
+			return false
+		}
+	}
+	return true
 }
 
 fn (mut m Vm) run_instruction(i Instr) {
@@ -95,7 +129,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 2 {
 			println('call nnn')
-			m.stack.push(m.pc)
+			m.stack << m.pc
 			m.pc = i.nnn()
 		}
 		i.a() == 3 {
@@ -143,12 +177,12 @@ fn (mut m Vm) run_instruction(i Instr) {
 		i.a() == 8 && i.n() == 4 {
 			println('vx = vx + vy, set vf = carry')
 			ret := u16(m.v[i.x()]) + m.v[i.y()]
-			m.v[i.x()] = byte(ret)
-			m.v[0xf] = if ret > 0xFF { byte(1) } else { 0 }
+			m.v[i.x()] = u8(ret)
+			m.v[0xf] = if ret > 0xFF { u8(1) } else { 0 }
 		}
 		i.a() == 8 && i.n() == 5 {
 			println('Vx = Vx - Vy, set VF = NOT borrow')
-			m.v[0xf] = if m.v[i.x()] > m.v[i.y()] { byte(1) } else { 0 }
+			m.v[0xf] = if m.v[i.x()] > m.v[i.y()] { u8(1) } else { 0 }
 			m.v[i.x()] -= m.v[i.y()]
 		}
 		i.a() == 8 && i.n() == 6 {
@@ -158,7 +192,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 8 && i.n() == 7 {
 			println('Vx = Vy - Vx, set VF = NOT borrow')
-			m.v[0xf] = if m.v[i.y()] > m.v[i.x()] { byte(1) } else { 0 }
+			m.v[0xf] = if m.v[i.y()] > m.v[i.x()] { u8(1) } else { 0 }
 			m.v[i.x()] = m.v[i.y()] - m.v[i.x()]
 		}
 		i.a() == 8 && i.n() == 0xE {
@@ -178,7 +212,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 0xC {
 			println('Vx = rand & kk')
-			m.v[i.x()] = rand.byte() & i.kk()
+			m.v[i.x()] = rand.u8() & i.kk()
 		}
 		i.a() == 0xD {
 			sprite := m.ram[m.i..m.i + i.n()]
@@ -199,6 +233,24 @@ fn (mut m Vm) run_instruction(i Instr) {
 			println(']')
 
 			// TODO set VF collision
+		}
+		i.a() == 0xE && i.kk() == 0x9E {
+			println('skip next if key Vx pressed')
+			if m.display.key_pressed(m.v[i.x()]) {
+				m.pc += 2
+			}
+		}
+		i.a() == 0xE && i.kk() == 0xA1 {
+			println('skip next if key Vx not pressed')
+			if !m.display.key_pressed(m.v[i.x()]) {
+				m.pc += 2
+			}
+		}
+		i.a() == 0xF && i.kk() == 0x07 {
+			m.v[i.x()] = m.dt
+		}
+		i.a() == 0xF && i.kk() == 0x15 {
+			m.dt = m.v[i.x()]
 		}
 		i.a() == 0xF && i.kk() == 0x29 {
 			m.i = m.v[i.x()] * 5
@@ -229,19 +281,63 @@ fn (mut m Vm) run_instruction(i Instr) {
 }
 
 fn main() {
-	display, uithread := new_ui_display()
-	// display := new_text_display()
+	display := [][]gx.Color{len: w, init: []gx.Color{len: h}}
+
+	mut context := gg.new_context(
+		bg_color: black
+		width: pwidth
+		height: pheight
+		window_title: 'Polygons'
+		frame_fn: fn [display] (mut ctx gg.Context) {
+			frame(display, mut ctx)
+		}
+	)
+
+	go context.run()
 
 	mut vm := Vm{
-		ram: [4096]byte{}
+		ram: [4096]u8{}
 		pc: 0x200
 		display: display
 	}
 
-	//	vm.load('/home/premek/downloads/displayNumbers.rom', vm.pc)
-	vm.load('/home/premek/downloads/test_opcode.ch8', vm.pc)
+	// vm.load('/home/premek/downloads/test_opcode.ch8', vm.pc)
+	vm.load('/home/premek/downloads/IBM Logo.ch8', vm.pc)
+	// vm.load('/home/premek/downloads/ghostEscape.ch8', vm.pc)
+	// vm.load('/home/premek/downloads/br8kout.ch8', vm.pc)
 	vm.load('/home/premek/downloads/FONTS.chip8', 0)
 	vm.run()
 
-	uithread.wait()
+	//	t.wait()
+}
+
+fn (mut display Display) clear() {
+	println('display clear')
+	for mut col in display {
+		for mut p in col {
+			p = black
+		}
+	}
+}
+
+fn (mut display Display) pixel(x int, y int, val bool) {
+	// println('Display ($x,$y)=$val')
+	// xor
+	color := if val { white } else { black }
+	newcolor := if color != display[x][y] { white } else { black }
+	display[x][y] = newcolor
+}
+
+fn (mut d Display) key_pressed(key u8) bool {
+	return false // d.keys_pressed[key]
+}
+
+fn frame(display Display, mut ctx gg.Context) {
+	ctx.begin()
+	for x, col in display {
+		for y, pixel in col {
+			ctx.draw_square_filled(x * psize, y * psize, psize, pixel)
+		}
+	}
+	ctx.end()
 }

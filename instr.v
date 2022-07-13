@@ -1,17 +1,17 @@
 type Instr = u16
 
-fn (i Instr) lo() byte {
-	return byte(i)
+fn (i Instr) lo() u8 {
+	return u8(i)
 }
 
-fn (i Instr) hi() byte {
+fn (i Instr) hi() u8 {
 	return i >> 8
 }
 
 // the lowest 8 bits of the instruction
 
-fn (i Instr) kk() byte {
-	return byte(i)
+fn (i Instr) kk() u8 {
+	return u8(i)
 }
 
 // the lowest 12 bits of the instruction
@@ -20,23 +20,29 @@ fn (i Instr) nnn() u16 {
 }
 
 // highest 4
-fn (i Instr) a() byte {
+fn (i Instr) a() u8 {
 	return i >> 12
 }
 
-// the lower 4 bits of the high byte of the instruction
-fn (i Instr) x() byte {
-	return byte(i & 0x0F00 >> 8)
+// the lower 4 bits of the high u8 of the instruction
+fn (i Instr) x() u8 {
+	return u8(i & 0x0F00 >> 8)
 }
 
-// the upper 4 bits of the low byte of the instruction
-fn (i Instr) y() byte {
-	return byte(i & 0x00F0 >> 4)
+// the upper 4 bits of the low u8 of the instruction
+fn (i Instr) y() u8 {
+	return u8(i & 0x00F0 >> 4)
 }
 
 // the lowest 4 bits of the instruction
-fn (i Instr) n() byte {
-	return byte(i & 0x000F)
+fn (i Instr) n() u8 {
+	return u8(i & 0x000F)
+}
+
+fn (i Instr) getn(b int) u8 {
+	println('${0xF000 >> (4 * b):X}')
+	println('${i & (0xF000 >> (4 * b)):X}')
+	return u8(i & (0xF000 >> (4 * b))) >> (4 * (4 - 1 - b))
 }
 
 fn (i Instr) println() {
