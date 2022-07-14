@@ -54,16 +54,27 @@ fn (p Pattern) matches(i Instr) bool {
 }
 
 fn main() {
-	mut vm := new_vm('/home/premek/downloads/IBM Logo.ch8')
-
-	// vm.load('/home/premek/downloads/test_opcode.ch8', vm.pc)
-	// vm.load('/home/premek/downloads/IBM Logo.ch8', vm.pc)
-	// vm.load('/home/premek/downloads/ghostEscape.ch8', vm.pc)
-	// vm.load('/home/premek/downloads/br8kout.ch8', vm.pc)
-	// vm.load('/home/premek/downloads/FONTS.chip8', 0)
+	app := '/home/premek/downloads/br8kout.ch8'
+	// '/home/premek/downloads/test_opcode.ch8'
+	// '/home/premek/downloads/IBM Logo.ch8'
+	// '/home/premek/downloads/ghostEscape.ch8'
+	// '/home/premek/downloads/br8kout.ch8'
+	// '/home/premek/downloads/FONTS.chip8'
+	mut vm := new_vm(app)
 	vm.run()
 }
 
 fn (mut d Display) key_pressed(key u8) bool {
+	println(key)
+	println(d.pressed_keys)
+	for i, k in d.pressed_keys {
+		if k {
+			panic('$i $k')
+		}
+	}
 	return false // d.keys_pressed[key]
+}
+
+fn debug(s string) {
+	// println(s)
 }

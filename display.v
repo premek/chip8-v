@@ -6,12 +6,17 @@ const (
 	white = gx.rgb(255, 255, 255)
 )
 
-type Display = [][]gx.Color
+struct Display {
+mut:
+	pixels       [][]gx.Color
+	context      gg.Context
+	pressed_keys [512]bool // FIXME key_code_max
+}
 
 fn new_display(w int, h int) Display {
-	display := [][]gx.Color{len: w, init: []gx.Color{len: h}}
-
-	mut context := gg.new_context(
+	mut display := Display{} // FIXME 'shared'?
+	display.pixels = [][]gx.Color{len: w, init: []gx.Color{len: h}}
+	c := gg.new_context(
 		bg_color: black
 		width: pwidth
 		height: pheight
@@ -19,16 +24,25 @@ fn new_display(w int, h int) Display {
 		frame_fn: fn [display] (mut ctx gg.Context) {
 			frame(display, mut ctx)
 		}
+		keyup_fn: fn [mut display] (c gg.KeyCode, m gg.Modifier, data voidptr) {
+			//	display.pressed_keys[c] = false
+		}
+		keydown_fn: fn [mut display] (c gg.KeyCode, m gg.Modifier, data voidptr) {
+			display.pressed_keys[c] = true
+			println('$c pressed')
+			println(display)
+			//	println(display.pressed_keys)
+		}
 	)
-
-	go context.run()
+	display.context = c
+	go c.run()
 
 	return display
 }
 
 fn (mut display Display) clear() {
-	println('display clear')
-	for mut col in display {
+	debug('display clear')
+	for mut col in display.pixels {
 		for mut p in col {
 			p = black
 		}
@@ -36,19 +50,20 @@ fn (mut display Display) clear() {
 }
 
 fn (mut display Display) pixel(x int, y int, val bool) {
-	// println('Display ($x,$y)=$val')
+	// debug('Display ($x,$y)=$val')
 	// xor
 	color := if val { white } else { black }
-	newcolor := if color != display[x][y] { white } else { black }
-	display[x][y] = newcolor
+	newcolor := if color != display.pixels[x][y] { white } else { black }
+	display.pixels[x][y] = newcolor
 }
 
 fn frame(display Display, mut ctx gg.Context) {
 	ctx.begin()
-	for x, col in display {
+	for x, col in display.pixels {
 		for y, pixel in col {
 			ctx.draw_square_filled(x * psize, y * psize, psize, pixel)
 		}
 	}
+	ctx.show_fps()
 	ctx.end()
 }

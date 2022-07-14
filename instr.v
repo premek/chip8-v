@@ -40,8 +40,8 @@ fn (i Instr) n() u8 {
 }
 
 fn (i Instr) getn(b int) u8 {
-	println('${0xF000 >> (4 * b):X}')
-	println('${i & (0xF000 >> (4 * b)):X}')
+	debug('${0xF000 >> (4 * b):X}')
+	debug('${i & (0xF000 >> (4 * b)):X}')
 	return u8(i & (0xF000 >> (4 * b))) >> (4 * (4 - 1 - b))
 }
 
