@@ -1,5 +1,6 @@
 import gg
 import gx
+import os
 
 const (
 	/*
@@ -36,6 +37,12 @@ mut:
 	vm &Vm = unsafe { nil }
 }
 
+[noreturn]
+fn usage() {
+	println('usage: ${os.args[0]} <filename>')
+	exit(1)
+}
+
 fn main() {
 	// app := '/home/premek/downloads/br8kout.ch8'
 	// app := '/home/premek/downloads/Life [GV Samways, 1980].ch8'
@@ -44,11 +51,11 @@ fn main() {
 	// app := '/home/premek/downloads/chip8-test-rom.ch8'
 	// app := '/home/premek/downloads/random_number_test.ch8'
 	// app := '/home/premek/downloads/IBM Logo.ch8'
-	app := '/home/premek/downloads/Keypad Test [Hap, 2006].ch8'
+	// app := '/home/premek/downloads/Keypad Test [Hap, 2006].ch8'
 	// app := '/home/premek/downloads/pong.rom'
 
 	mut state := &AppState{}
-	state.vm = new_vm(app)
+	state.vm = new_vm(os.args[1] or { usage() })
 	state.gg = gg.new_context(
 		bg_color: black
 		width: pwidth
