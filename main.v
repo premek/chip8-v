@@ -1,19 +1,14 @@
 import gg
+import gx
 
 const (
-	w       = 64
-	h       = 32
-	pwidth  = 640
-	pheight = 320
-	psize   = pwidth / w
-
 	/*
 	1234      123C
 	qwer --\\ 456D
 	asdf --// 789E
 	zxcv      A0BF
 	*/
-	keys    = {
+	keys = {
 		gg.KeyCode._1: 1
 		gg.KeyCode._2: 2
 		gg.KeyCode._3: 3
@@ -31,50 +26,66 @@ const (
 		gg.KeyCode.c:  0xB
 		gg.KeyCode.v:  0xF
 	}
+	black = gx.rgb(0, 0, 0)
+	white = gx.rgb(255, 255, 255)
 )
 
-struct Pattern {
-	pattern []u8
-	handler fn (mut m Vm)
-}
-
-fn new_pattern(pattern string, handler fn (mut m Vm)) Pattern {
-	return Pattern{pattern.runes().map(u8('0x$it'.int())), handler}
-}
-
-fn (p Pattern) matches(i Instr) bool {
-	for b in 0 .. 4 {
-		a := i.getn(b)
-
-		if a != p.pattern[b] {
-			return false
-		}
-	}
-	return true
+struct AppState {
+mut:
+	gg &gg.Context = unsafe { nil }
+	vm &Vm = unsafe { nil }
 }
 
 fn main() {
-	app := '/home/premek/downloads/br8kout.ch8'
-	// '/home/premek/downloads/test_opcode.ch8'
-	// '/home/premek/downloads/IBM Logo.ch8'
-	// '/home/premek/downloads/ghostEscape.ch8'
-	// '/home/premek/downloads/br8kout.ch8'
-	// '/home/premek/downloads/FONTS.chip8'
-	mut vm := new_vm(app)
-	vm.run()
+	// app := '/home/premek/downloads/br8kout.ch8'
+	// app := '/home/premek/downloads/Life [GV Samways, 1980].ch8'
+	// app := '/home/premek/downloads/test_opcode.ch8'
+	// app := '/home/premek/downloads/IBM Logo.ch8'
+	app := '/home/premek/downloads/Keypad Test [Hap, 2006].ch8'
+
+	mut state := &AppState{}
+	state.vm = new_vm(app)
+	state.gg = gg.new_context(
+		bg_color: black
+		width: pwidth
+		height: pheight
+		window_title: 'vlang chip 8 '
+		create_window: true
+		frame_fn: frame
+		keyup_fn: keyup
+		keydown_fn: keydown
+		user_data: state // passed to callback functions
+	)
+
+	spawn state.vm.run()
+	state.gg.run()
 }
 
-fn (mut d Display) key_pressed(key u8) bool {
-	println(key)
-	println(d.pressed_keys)
-	for i, k in d.pressed_keys {
-		if k {
-			panic('$i $k')
+fn frame(mut state AppState) {
+	state.gg.begin()
+	for x, col in state.vm.display {
+		for y, pixel in col {
+			state.gg.draw_square_filled(x * psize, y * psize, psize, if pixel {
+				white
+			} else {
+				black
+			})
 		}
 	}
-	return false // d.keys_pressed[key]
+	state.gg.show_fps()
+	state.gg.end()
+}
+
+fn keydown(c gg.KeyCode, m gg.Modifier, mut state AppState) {
+	key := keys[c] or { return }
+	state.vm.pressed_keys[key] = true
+}
+
+fn keyup(c gg.KeyCode, m gg.Modifier, mut state AppState) {
+	key := keys[c] or { return }
+	state.vm.pressed_keys[key] = false
 }
 
 fn debug(s string) {
-	// println(s)
+	println(s)
 }

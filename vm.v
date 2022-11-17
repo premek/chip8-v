@@ -4,25 +4,26 @@ import rand
 
 struct Vm {
 mut:
-	ram     [4096]u8
-	pc      u16
-	v       [16]u8
-	i       u16
-	dt      u8
-	st      u8
-	stack   []u16
-	display Display
+	ram          [4096]u8
+	pc           u16    // program counter - the currently executing address
+	v            [16]u8 // general purpose 8-bit registers Vx (V0 -VF)
+	i            u16    // generally used to store memory addresses
+	dt           u8     // delay timer
+	st           u8     // sound timer
+	stack        []u16
+	display      Display
+	pressed_keys [16]bool
 }
 
-fn new_vm(app_filename string) Vm {
+fn new_vm(app_filename string) &Vm {
 	mut vm := Vm{
 		ram: [4096]u8{}
 		pc: 0x200
-		display: new_display(w, h)
+		display: [][]bool{len: w, init: []bool{len: h}}
 	}
 	vm.load('/home/premek/downloads/FONTS.chip8', 0) // FIXME
 	vm.load(app_filename, vm.pc)
-	return vm
+	return &vm
 }
 
 fn (m Vm) print(pc int) {
@@ -30,11 +31,11 @@ fn (m Vm) print(pc int) {
 }
 
 fn (m Vm) tostring() string {
-	return '$m.v'
+	return '${m.v}'
 }
 
 fn (mut m Vm) load(filename string, start int) {
-	data := os.read_file(filename) or { panic('error reading $filename') }
+	data := os.read_file(filename) or { panic('error reading ${filename}') }
 	for i, b in data {
 		m.ram[start + i] = b
 	}
@@ -50,22 +51,29 @@ fn (mut m Vm) read_instruction() Instr {
 
 fn (mut m Vm) run() {
 	for m.pc < m.ram.len {
-		i := m.read_instruction()
-		// debug(i.tostring())
-		if i == 0 {
+		if m.step() {
 			break
-		}
-		m.run_instruction(i)
-		if m.st > 0 {
-			m.st-- // TODO play/stop sound
-		}
-		if m.dt > 0 {
-			m.dt--
 		}
 		// debug('\t')
 		time.sleep(16 * time.millisecond)
 	}
 	debug('program end')
+}
+
+fn (mut m Vm) step() bool {
+	i := m.read_instruction()
+	debug(i.tostring())
+	if i == 0 {
+		return true
+	}
+	m.run_instruction(i)
+	if m.st > 0 {
+		m.st-- // TODO play/stop sound
+	}
+	if m.dt > 0 {
+		m.dt--
+	}
+	return false
 }
 
 fn (mut m Vm) run_instruction(i Instr) {
@@ -107,7 +115,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 6 {
 			m.v[i.x()] = i.kk()
-			debug('V$i.x()=$i.kk(); $m.v')
+			debug('V${i.x()}=${i.kk()}; ${m.v}')
 		}
 		i.a() == 7 {
 			m.v[i.x()] += i.kk()
@@ -173,7 +181,7 @@ fn (mut m Vm) run_instruction(i Instr) {
 			sprite := m.ram[m.i..m.i + i.n()]
 			sx := m.v[i.x()]
 			sy := m.v[i.y()]
-			debug('Sprite on ($sx, $sy): [')
+			debug('Sprite on (${sx}, ${sy}): [')
 			for r, row in sprite {
 				y := sy + r
 				print("'")
@@ -191,14 +199,22 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 0xE && i.kk() == 0x9E {
 			debug('skip next if key Vx pressed')
-			if m.display.key_pressed(m.v[i.x()]) {
+			if m.pressed_keys[m.v[i.x()]] {
 				m.pc += 2
 			}
 		}
 		i.a() == 0xE && i.kk() == 0xA1 {
 			debug('skip next if key Vx not pressed')
-			if !m.display.key_pressed(m.v[i.x()]) {
+			if !m.pressed_keys[m.v[i.x()]] {
 				m.pc += 2
+			}
+		}
+		i.a() == 0xF && i.kk() == 0x0A {
+			debug('Wait for key, store key in Vx')
+			if key := get_pressed_key(m) {
+				m.v[i.x()] = key
+			} else {
+				m.pc -= 2 // stay on the same instruction - wait for key
 			}
 		}
 		i.a() == 0xF && i.kk() == 0x07 {
@@ -207,12 +223,15 @@ fn (mut m Vm) run_instruction(i Instr) {
 		i.a() == 0xF && i.kk() == 0x15 {
 			m.dt = m.v[i.x()]
 		}
+		i.a() == 0xF && i.kk() == 0x1E {
+			m.i += m.v[i.x()]
+		}
 		i.a() == 0xF && i.kk() == 0x18 {
 			m.st = m.v[i.x()]
 		}
 		i.a() == 0xF && i.kk() == 0x29 {
 			m.i = m.v[i.x()] * 5
-			debug('I = location of sprite for digit Vx; Vx=${m.v[i.x()]}; I=$m.i')
+			debug('I = location of sprite for digit Vx; Vx=${m.v[i.x()]}; I=${m.i}')
 		}
 		i.a() == 0xF && i.kk() == 0x33 {
 			debug('BCD Vx -> I, I+1, I+2')
@@ -222,18 +241,27 @@ fn (mut m Vm) run_instruction(i Instr) {
 		}
 		i.a() == 0xF && i.kk() == 0x55 {
 			for x in 0 .. i.x() + 1 {
-				debug('ram[$m.i+$x] = V$x')
+				debug('ram[${m.i}+${x}] = V${x}')
 				m.ram[m.i + x] = m.v[x]
 			}
 		}
 		i.a() == 0xF && i.kk() == 0x65 {
 			for x in 0 .. i.x() + 1 {
-				debug('V$x = ram[$m.i+$x]')
+				debug('V${x} = ram[${m.i}+${x}]')
 				m.v[x] = m.ram[m.i + x]
 			}
 		}
 		else {
-			panic('unknown instruction $i.hex()')
+			panic('unknown instruction ${i.hex()}')
 		}
 	}
+}
+
+fn get_pressed_key(m Vm) ?u8 {
+	for key, pressed in m.pressed_keys {
+		if pressed {
+			return u8(key)
+		}
+	}
+	return none
 }
