@@ -9,7 +9,6 @@ const (
 type Display = [][]bool
 
 fn (mut display Display) clear() {
-	//	debug('display clear')
 	for mut col in display {
 		for mut p in col {
 			p = false
@@ -18,10 +17,7 @@ fn (mut display Display) clear() {
 }
 
 fn (mut display Display) pixel(x int, y int, val bool) {
-	// debug('Display ($x,$y)=$val')
-	// xor
-	newcolor := val != display[x][y]
-	display[x][y] = newcolor
+	display[x][y] = val != display[x][y]
 }
 
 fn new_display(w int, h int) Display {

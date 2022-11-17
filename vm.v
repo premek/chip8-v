@@ -16,14 +16,15 @@ mut:
 }
 
 fn new_vm(app_filename string) &Vm {
-	mut vm := Vm{
+	mut vm := &Vm{
 		ram: [4096]u8{}
 		pc: 0x200
 		display: [][]bool{len: w, init: []bool{len: h}}
 	}
-	vm.load('/home/premek/downloads/FONTS.chip8', 0) // FIXME
+
+	vm.load_fonts()
 	vm.load(app_filename, vm.pc)
-	return &vm
+	return vm
 }
 
 fn (m Vm) print(pc int) {
@@ -32,6 +33,14 @@ fn (m Vm) print(pc int) {
 
 fn (m Vm) tostring() string {
 	return '${m.v}'
+}
+
+fn (mut m Vm) load_fonts() {
+	// When you compile with -prod, the file will be embedded inside your executable
+	fonts := $embed_file('FONTS.chip8')
+	for i, b in fonts.to_bytes() {
+		m.ram[i] = b
+	}
 }
 
 fn (mut m Vm) load(filename string, start int) {
@@ -55,7 +64,7 @@ fn (mut m Vm) run() {
 			break
 		}
 		// debug('\t')
-		time.sleep(16 * time.millisecond)
+		time.sleep(6 * time.millisecond)
 	}
 	debug('program end')
 }
@@ -184,12 +193,12 @@ fn (mut m Vm) run_instruction(i Instr) {
 			debug('Sprite on (${sx}, ${sy}): [')
 			for r, row in sprite {
 				y := sy + r
-				print("'")
+				debug("'")
 				for bit in 0 .. 8 {
 					x := sx + bit
 					val := (row >> (7 - bit)) & 1 == 1
 					m.display.pixel(x % w, y % h, val)
-					print(if val { '#' } else { ' ' })
+					debug(if val { '#' } else { ' ' })
 				}
 				debug("'")
 			}

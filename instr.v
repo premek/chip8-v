@@ -9,7 +9,6 @@ fn (i Instr) hi() u8 {
 }
 
 // the lowest 8 bits of the instruction
-
 fn (i Instr) kk() u8 {
 	return u8(i)
 }
@@ -40,14 +39,7 @@ fn (i Instr) n() u8 {
 }
 
 fn (i Instr) getn(b int) u8 {
-	// debug('${0xF000 >> (4 * b):X}')
-	// debug('${i & (0xF000 >> (4 * b)):X}')
 	return u8(i & (0xF000 >> (4 * b))) >> (4 * (4 - 1 - b))
-}
-
-fn (i Instr) println() {
-	println(i)
-	println(i.tostring())
 }
 
 fn (i Instr) hex() string {

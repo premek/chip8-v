@@ -40,8 +40,12 @@ fn main() {
 	// app := '/home/premek/downloads/br8kout.ch8'
 	// app := '/home/premek/downloads/Life [GV Samways, 1980].ch8'
 	// app := '/home/premek/downloads/test_opcode.ch8'
+	// app := '/home/premek/downloads/Delay Timer Test [Matthew Mikolay, 2010].ch8'
+	// app := '/home/premek/downloads/chip8-test-rom.ch8'
+	// app := '/home/premek/downloads/random_number_test.ch8'
 	// app := '/home/premek/downloads/IBM Logo.ch8'
 	app := '/home/premek/downloads/Keypad Test [Hap, 2006].ch8'
+	// app := '/home/premek/downloads/pong.rom'
 
 	mut state := &AppState{}
 	state.vm = new_vm(app)
@@ -65,14 +69,15 @@ fn frame(mut state AppState) {
 	state.gg.begin()
 	for x, col in state.vm.display {
 		for y, pixel in col {
-			state.gg.draw_square_filled(x * psize, y * psize, psize, if pixel {
+			color := if pixel {
 				white
 			} else {
 				black
-			})
+			}
+			state.gg.draw_square_filled(x * psize, y * psize, psize, color)
 		}
 	}
-	state.gg.show_fps()
+	// state.gg.show_fps()
 	state.gg.end()
 }
 
@@ -87,5 +92,5 @@ fn keyup(c gg.KeyCode, m gg.Modifier, mut state AppState) {
 }
 
 fn debug(s string) {
-	println(s)
+	//	println(s)
 }
