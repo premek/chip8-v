@@ -19,7 +19,7 @@ fn new_vm(app_filename string) &Vm {
 	mut vm := &Vm{
 		ram: [4096]u8{}
 		pc: 0x200
-		display: [][]bool{len: w, init: []bool{len: h}}
+		display: new_display(w, h)
 	}
 
 	vm.load_fonts()
