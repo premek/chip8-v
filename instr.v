@@ -38,10 +38,6 @@ fn (i Instr) n() u8 {
 	return u8(i & 0x000F)
 }
 
-fn (i Instr) getn(b int) u8 {
-	return u8(i & (0xF000 >> (4 * b))) >> (4 * (4 - 1 - b))
-}
-
 fn (i Instr) hex() string {
 	return '${i:04X}'
 }
