@@ -94,6 +94,10 @@ fn keydown(c gg.KeyCode, m gg.Modifier, mut state AppState) {
 }
 
 fn keyup(c gg.KeyCode, m gg.Modifier, mut state AppState) {
+	if c == gg.KeyCode.escape {
+		exit(0)
+	}
+
 	key := keys[c] or { return }
 	state.vm.pressed_keys[key] = false
 }
